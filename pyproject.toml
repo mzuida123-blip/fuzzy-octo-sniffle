@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omni_brain_simulator"
+version = "0.1.0"
+description = "Omni Brain Simulator package (W-Y mesh engine + visualizer)"
+authors = [
+  {name = "mzuida123-blip"}
+]
+license = {text = "MIT"}
