@@ -1,7 +1,3 @@
-"""omni-brain-simulator.core.engine
-
-W-Y 跨维格点与非线性电阻网络引擎（本文件为本批次提交）
-"""
 from __future__ import annotations
 
 import math
@@ -58,13 +54,13 @@ class WYResistorMesh:
     def apply_impulse(self, voltage_vector: List[float], collapse_rate: float = 0.05) -> float:
         """将电压脉冲应用到网格的行向通道。
 
-        - voltage_vector: 以行索引为主的脉冲强度列表（��短于行数将重复或以 1.0 代替）
+        - voltage_vector: 以行索引为主的脉冲强度列表（若短于行数将重复或以最后一项代替）
         - collapse_rate: 阻抗随单位脉冲坍缩比例基准
 
-        返回网格的平均阻抗值作为特征量。
+        返回网格的平均阻抗值作为特征��。
         """
         for i in range(self.grid_size):
-            v = voltage_vector[i] if i < len(voltage_vector) else voltage_vector[-1] if voltage_vector else 1.0
+            v = voltage_vector[i] if i < len(voltage_vector) else (voltage_vector[-1] if voltage_vector else 1.0)
             # 非线性因子：与行平均当前阻抗有关（高阻抗时更容易崩坍）
             row_avg = sum(self.matrix[i]) / self.grid_size
             nonlinear = 1.0 + math.tanh((row_avg - sum(self.init_range) / 2.0) / 25.0)
@@ -88,24 +84,65 @@ class WYResistorMesh:
         return [row.copy() for row in self.matrix]
 
 
-# 简单演示与自检
-def demo_run(seed: int | None = None) -> None:
-    print("-- omni-brain-simulator.core.engine demo --")
-    wire = TopologicalWire(jump_points_count=8, seed=seed)
-    mesh = WYResistorMesh(seed=seed)
+# ------------------------------------------------------------------
+# WYTransformerEngine: a lightweight transform engine intended to work
+# with higher-resolution W/Y domains (numpy arrays) for visualization
+# ------------------------------------------------------------------
+import numpy as np
 
-    print(f"Terminal resonance gap: {wire.get_resonance_gap()}")
-    print(f"Initial avg resistance: {mesh.average_resistance():.4f} ohm")
+class WYTransformerEngine:
+    """A simple transformer engine that exposes an API used by the
+    visualization and control loops in the demo.
 
-    pulses = [1.0, 2.0, 0.5, 1.5]
-    for t, p in enumerate(pulses, start=1):
-        avg = mesh.apply_impulse([p] * mesh.grid_size)
-        print(f" After pulse {t} (strength {p}): avg_resistance={avg:.4f}")
+    - size: width/height of the square W/Y domains (e.g. 64)
+    - internal_state: numpy array representing the W-domain impedances
+    - resonance_frequency: heuristic scalar updated by compute_mobius_resonance
+    """
 
-    print("Snapshot:")
-    for row in mesh.snapshot():
-        print(" ", [round(x, 3) for x in row])
+    def __init__(self, size: int = 64, seed: int | None = None):
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+        self.size = int(size)
+        # initialize W-domain as random impedance-like values
+        self.internal_state = np.random.uniform(5.0, 50.0, size=(self.size, self.size))
+        self.resonance_frequency = 0.0
+
+    def inject_w_signal(self, x: int, y: int, val: float = 1.0) -> None:
+        """Inject a point signal into the W-domain with bounds checks."""
+        xi = max(0, min(self.size - 1, int(x)))
+        yi = max(0, min(self.size - 1, int(y)))
+        self.internal_state[xi, yi] += float(val)
+
+    def compute_mobius_resonance(self) -> None:
+        """Update resonance_frequency as an inverse function of average impedance."""
+        avg = float(np.mean(self.internal_state))
+        # heuristic: lower impedance => higher frequency
+        self.resonance_frequency = max(0.0, 100.0 / (1.0 + avg))
+
+    def forward_propagate(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Produce W and Y numpy arrays for visualization.
+
+        - W is a normalized version of the internal_state
+        - Y is a mirrored/transformed projection with phase-like modulation
+        """
+        w = np.copy(self.internal_state)
+        # normalize to 0..1 for visualization
+        w_min, w_max = w.min(), w.max()
+        if w_max - w_min == 0:
+            w_norm = np.zeros_like(w)
+        else:
+            w_norm = (w - w_min) / (w_max - w_min)
+
+        # create Y as a flipped and slightly phase-shifted version
+        y = np.flipud(w_norm) * (1.0 + np.random.normal(0, 0.02, w_norm.shape))
+        return w_norm, y
 
 
-if __name__ == "__main__":
-    demo_run(seed=42)
+# simple demo using the transformer engine
+def demo_transformer(seed: int | None = None) -> None:
+    eng = WYTransformerEngine(size=16, seed=seed)
+    print("WYTransformerEngine demo: avg", float(np.mean(eng.internal_state)))
+    eng.inject_w_signal(2, 3, 5.0)
+    eng.compute_mobius_resonance()
+    print("resonance_frequency", eng.resonance_frequency)

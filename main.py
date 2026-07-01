@@ -13,9 +13,10 @@ PACKAGE_PATH = os.path.join(ROOT, "omni-brain-simulator")
 if PACKAGE_PATH not in sys.path:
     sys.path.insert(0, PACKAGE_PATH)
 
-from core.engine import TopologicalWire, WYResistorMesh
+from core.engine import WYTransformerEngine, TopologicalWire, WYResistorMesh
 from core.visualizer import OmniVisualizer
 from control.regime import RegimeController
+from control.totalitarian import TotalitarianController
 
 
 def normalize_matrix(mat: list) -> np.ndarray:
@@ -67,6 +68,32 @@ def run_system(iterations: int = 100, interactive: bool = True) -> None:
         except Exception:
             pass
 
+
+# New: run_system_with_regime using WYTransformerEngine + TotalitarianController
+
+def run_system_with_regime():
+    # use transformer engine for higher-res domains
+    engine = WYTransformerEngine(size=64)
+    viz = OmniVisualizer()
+    total_ctrl = TotalitarianController(entropy_threshold=1.2)
+
+    print("🚀 超脑系统已进入[集权统治模式]...")
+
+    for i in range(200):
+        # 1. 注入
+        engine.inject_w_signal(np.random.randint(0, 64), np.random.randint(0, 64), 2.0)
+
+        # 2. 映射
+        engine.compute_mobius_resonance()
+        w, y = engine.forward_propagate()
+
+        # 3. 统治逻辑 (核心步骤)
+        y_governed = total_ctrl.check_and_govern(y)
+
+        # 4. 渲染
+        viz.update(w, y_governed)
+
+    # note: call run_system_with_regime() explicitly to run
 
 if __name__ == "__main__":
     run_system()
