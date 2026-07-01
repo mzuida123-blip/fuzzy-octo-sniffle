@@ -1,0 +1,2 @@
+streamlit
+jieba>=0.42.1
