@@ -1,1 +1,2 @@
-# No external runtime dependencies required; uses Python standard library only
+numpy>=1.22.0
+matplotlib>=3.5.0
